@@ -734,14 +734,38 @@
     showToast._t = setTimeout(()=>toastEl.classList.remove("show"), 1400);
   }
 
-  function pickMaleVoice() {
+  function pickNaturalVoice() {
     const voices = speechSynthesis.getVoices?.() || [];
     if (!voices.length) return null;
-    const en = voices.filter(v => /en/i.test(v.lang));
-    const pool = en.length ? en : voices;
-    // Try to pick a "male-ish" voice name, but fall back safely.
-    const preferred = pool.find(v => /male|daniel|alex|fred|google us english|microsoft david/i.test(v.name));
-    return preferred || pool[0];
+
+    const english = voices.filter(v => /^en[-_]/i.test(v.lang) || /^en$/i.test(v.lang));
+    const pool = english.length ? english : voices;
+
+    // Prefer natural, child-friendly voices commonly available on iPhone/iPad.
+    const preferredNames = [
+      /samantha/i,
+      /ava/i,
+      /allison/i,
+      /serena/i,
+      /karen/i,
+      /moira/i,
+      /victoria/i,
+      /susan/i,
+      /zira/i,
+      /google uk english female/i
+    ];
+
+    for (const pattern of preferredNames) {
+      const match = pool.find(v => pattern.test(v.name));
+      if (match) return match;
+    }
+
+    // Avoid novelty and unusually deep voices when possible.
+    const safeVoice = pool.find(v =>
+      !/alex|daniel|fred|ralph|junior|bad news|good news|bells|boing|bubbles|cellos|organ|trinoids|whisper|zarvox/i.test(v.name)
+    );
+
+    return safeVoice || pool[0] || null;
   }
 
   function speak(text) {
@@ -752,9 +776,11 @@
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = 0.95;
-      u.pitch = 0.9;
-      u.voice = state.voice || pickMaleVoice();
+      u.lang = "en-US";
+      u.rate = 0.90;
+      u.pitch = 1.05;
+      u.volume = 1;
+      u.voice = state.voice || pickNaturalVoice();
       u.onend = () => state.speakingLocked = false;
       u.onerror = () => state.speakingLocked = false;
       speechSynthesis.speak(u);
@@ -774,7 +800,7 @@
 
   // Initialize voices when available
   function initVoices() {
-    state.voice = pickMaleVoice();
+    state.voice = pickNaturalVoice();
   }
   if ("speechSynthesis" in window) {
     initVoices();
